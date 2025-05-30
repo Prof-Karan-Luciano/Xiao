@@ -27,6 +27,10 @@ let recuoTick = 0;
 // Partículas
 let particulas = [];
 
+// Estrutura para interpolação de jogadores
+let interpJogadores = {}; // id: {x0, y0, x1, y1, t0, t1}
+const INTERP_DELAY = 80; // ms de atraso para suavizar
+
 // =====================
 // Funções de Rede
 // =====================
@@ -35,9 +39,11 @@ let particulas = [];
  * Conecta ao servidor WebSocket e inicializa eventos.
  */
 function conectar() {
+  // Recupera nome do localStorage, se existir
+  let nomeSalvo = localStorage.getItem('nomeJogador');
   let nomeValido = false;
   while (!nomeValido) {
-    nome = window.prompt('Digite seu nome:') || 'Jogador';
+    nome = window.prompt('Digite seu nome:', nomeSalvo || '') || (nomeSalvo || 'Jogador');
     nome = nome.trim().slice(0, 16);
     nomeValido = true;
     // Verifica nomes já usados
@@ -49,6 +55,8 @@ function conectar() {
       }
     }
   }
+  // Salva nome para respawn
+  localStorage.setItem('nomeJogador', nome);
   const host = window.location.hostname || 'localhost';
   socket = new WebSocket(`ws://${host}:3000`);
 
@@ -66,6 +74,22 @@ function conectar() {
         morto = false;
         break;
       case 'state':
+        // Interpolação: armazena posições antigas e novas
+        for (const j of data.jogadores) {
+          if (!interpJogadores[j.id]) {
+            interpJogadores[j.id] = {
+              x0: j.x, y0: j.y, x1: j.x, y1: j.y, t0: performance.now(), t1: performance.now()
+            };
+          } else {
+            let interp = interpJogadores[j.id];
+            interp.x0 = interp.x1;
+            interp.y0 = interp.y1;
+            interp.x1 = j.x;
+            interp.y1 = j.y;
+            interp.t0 = interp.t1;
+            interp.t1 = performance.now() + INTERP_DELAY;
+          }
+        }
         jogadores = {};
         for (const j of data.jogadores) {
           jogadores[j.id] = j;
@@ -421,6 +445,18 @@ function atualizar() {
   atualizarParticulas();
 }
 
+function getInterpPos(id) {
+  if (!interpJogadores[id]) return {x: jogadores[id]?.x || 0, y: jogadores[id]?.y || 0};
+  const interp = interpJogadores[id];
+  const now = performance.now();
+  let t = (now - interp.t0) / (interp.t1 - interp.t0);
+  t = Math.max(0, Math.min(1, t));
+  return {
+    x: interp.x0 + (interp.x1 - interp.x0) * t,
+    y: interp.y0 + (interp.y1 - interp.y0) * t
+  };
+}
+
 function desenhar() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   desenharParticulas();
@@ -430,10 +466,11 @@ function desenhar() {
   let tick = performance.now() / 16;
   for (const id in jogadores) {
     const j = jogadores[id];
+    let posInterp = (id === meuId) ? {x: j.x, y: j.y} : getInterpPos(id);
     desenharPalitinho(
       ctx,
-      j.x,
-      j.y,
+      posInterp.x,
+      posInterp.y,
       j.cor,
       j.nome,
       id === meuId,
@@ -469,3 +506,21 @@ function loop() {
 
 conectar();
 loop();
+
+// =====================
+// Colisão avançada: hitbox cabeça/corpo
+// =====================
+
+function checarColisaoBalaJogador(bala, jogador) {
+  // Corpo: círculo maior
+  const corpo = {x: jogador.x, y: jogador.y + 6, r: 13};
+  // Cabeça: círculo menor
+  const cabeca = {x: jogador.x, y: jogador.y - 18, r: 10};
+  // Checa cabeça primeiro
+  const distCabeca = Math.hypot(bala.x - cabeca.x, bala.y - cabeca.y);
+  if (distCabeca < cabeca.r + 5) return 'head';
+  // Checa corpo
+  const distCorpo = Math.hypot(bala.x - corpo.x, bala.y - corpo.y);
+  if (distCorpo < corpo.r + 5) return 'body';
+  return null;
+}
