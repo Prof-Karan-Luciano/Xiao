@@ -253,7 +253,7 @@ function desenharParticulas() {
  * @param {boolean} isMeu
  * @param {number} tick
  */
-function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
+function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick, j) {
   ctx.save();
   // Sombra/contorno
   ctx.shadowColor = '#000';
@@ -325,19 +325,23 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.stroke();
 
   // Braço direito (arma)
-  let anguloArma = 0;
+  let anguloArma = 0.5;
+  let recuo = 0;
   if (isMeu) {
     anguloArma = Math.atan2(mouse.y - y, mouse.x - x);
-  } else {
-    anguloArma = 0.5;
+    if (recuoArma > 0) {
+      recuo = Math.sin(recuoTick / 3) * 7 * recuoArma;
+    }
+  } else if (j) {
+    if (typeof j.tiroDx === 'number' && typeof j.tiroDy === 'number') {
+      anguloArma = Math.atan2(j.tiroDy, j.tiroDx);
+    }
+    if (typeof j.recuo === 'number') {
+      recuo = Math.sin(performance.now() / 48) * 7 * j.recuo;
+    }
   }
   const bracoCompr = 18;
   const armaCompr = 18;
-  // Recuo da arma
-  let recuo = 0;
-  if (isMeu && recuoArma > 0) {
-    recuo = Math.sin(recuoTick / 3) * 7 * recuoArma;
-  }
   const maoX = x + Math.cos(anguloArma) * (bracoCompr + recuo);
   const maoY = y + Math.sin(anguloArma) * (bracoCompr + recuo);
   ctx.beginPath();
@@ -474,7 +478,8 @@ function desenhar() {
       j.cor,
       j.nome,
       id === meuId,
-      tick
+      tick,
+      j
     );
   }
   // Placar

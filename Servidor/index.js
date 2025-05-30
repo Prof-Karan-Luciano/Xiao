@@ -57,7 +57,10 @@ wss.on('connection', (ws) => {
           x: Math.random() * 600 + 100,
           y: Math.random() * 400 + 100,
           cor: gerarCorUnica(),
-          pontos: 0
+          pontos: 0,
+          tiroDx: 1, // padrão direita
+          tiroDy: 0,
+          recuo: 0
         };
         ws.send(JSON.stringify({ type: 'init', id: jogadorId }));
         console.log(`[JOIN] ${nome} (${jogadorId}) conectado.`);
@@ -85,6 +88,10 @@ wss.on('connection', (ws) => {
             dy,
             tempo: Date.now()
           });
+          // Salva direção e ativa recuo
+          jogadores[jogadorId].tiroDx = dx;
+          jogadores[jogadorId].tiroDy = dy;
+          jogadores[jogadorId].recuo = 1;
           console.log(`[SHOOT] ${jogadores[jogadorId].nome} atirou.`);
         }
         break;
@@ -127,10 +134,22 @@ setInterval(() => {
       }
     }
   }
+  // Atualiza recuo dos jogadores
+  for (const jid in jogadores) {
+    if (jogadores[jid].recuo > 0) {
+      jogadores[jid].recuo *= 0.85;
+      if (jogadores[jid].recuo < 0.01) jogadores[jid].recuo = 0;
+    }
+  }
   // Broadcast do estado do jogo
   broadcast({
     type: 'state',
-    jogadores: Object.values(jogadores),
+    jogadores: Object.values(jogadores).map(j => ({
+      ...j,
+      tiroDx: j.tiroDx,
+      tiroDy: j.tiroDy,
+      recuo: j.recuo
+    })),
     balas
   });
 }, TICK_RATE);
