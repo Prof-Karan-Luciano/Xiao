@@ -1,0 +1,32 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #181c22;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gameCanvas {
+  background: #23272e;
+  display: block;
+  margin: auto;
+  box-shadow: 0 0 32px #000a;
+  border-radius: 12px;
+}
+
+.scoreboard {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  color: #fff;
+  font-family: monospace;
+  background: rgba(0,0,0,0.4);
+  padding: 12px 18px;
+  border-radius: 8px;
+  min-width: 120px;
+  z-index: 10;
+}

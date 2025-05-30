@@ -1,0 +1,14 @@
+{
+  "name": "2d-multiplayer-shooter-server",
+  "version": "1.0.0",
+  "description": "Servidor Node.js para jogo de tiro 2D multijogador online.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
