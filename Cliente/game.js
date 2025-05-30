@@ -122,7 +122,8 @@ canvas.addEventListener('mousedown', (e) => {
 // =====================
 
 /**
- * Desenha um palitinho (stick figure) animado com arma.
+ * Desenha um palitinho (stick figure) animado com arma e pernas naturais.
+ * Pernas: movimento elíptico alternado, sincronizado com direção do movimento.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} x
  * @param {number} y
@@ -145,29 +146,52 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.lineTo(x, y + 18);
   ctx.stroke();
 
-  // Animação das pernas e braços
-  // Fase de movimento baseada no tempo e posição
-  let fase = Math.sin(tick / 8 + x / 30 + y / 40) * 10;
-  let andando = false;
+  // Detecta direção do movimento
+  let dx = 0, dy = 0;
   if (isMeu) {
-    andando = (teclas.w || teclas.a || teclas.s || teclas.d || teclas.ArrowUp || teclas.ArrowDown || teclas.ArrowLeft || teclas.ArrowRight);
+    if (teclas.w || teclas.ArrowUp) dy -= 1;
+    if (teclas.s || teclas.ArrowDown) dy += 1;
+    if (teclas.a || teclas.ArrowLeft) dx -= 1;
+    if (teclas.d || teclas.ArrowRight) dx += 1;
   } else {
-    // Para outros jogadores, anima se estiver mudando de posição
-    andando = true; // Opcional: pode usar velocidade se disponível
+    // Para outros jogadores, anima sempre para frente
+    dy = 1;
   }
-  if (!andando) fase = 0;
+  let andando = (dx !== 0 || dy !== 0);
+  // Ângulo do movimento
+  let angMov = Math.atan2(dy, dx);
+  // Fase sincronizada com direção
+  let t = tick / 8;
+  if (andando && (dx < 0 || dy > 0)) t = -t; // Inverte fase para esquerda/baixo
+  let ampX = 8, ampY = 18;
+  let faseA = andando ? t : 0;
+  let faseB = andando ? t + Math.PI : 0;
+  // Posição dos pés
+  let pernaAX = x - 7 + Math.sin(faseA) * ampX;
+  let pernaAY = y + 18 + Math.abs(Math.cos(faseA)) * ampY;
+  let pernaBX = x + 7 + Math.sin(faseB) * ampX;
+  let pernaBY = y + 18 + Math.abs(Math.cos(faseB)) * ampY;
+  // Pernas
+  ctx.beginPath();
+  ctx.moveTo(x, y + 18);
+  ctx.lineTo(pernaAX, pernaAY);
+  ctx.moveTo(x, y + 18);
+  ctx.lineTo(pernaBX, pernaBY);
+  ctx.stroke();
 
-  // Braço esquerdo
+  // Braço esquerdo (anima levemente)
+  let faseBraco = andando ? Math.sin(t / 1.5 + Math.PI / 2) : 0;
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.lineTo(x - 14, y + 8 + fase);
+  ctx.lineTo(x - 14, y + 8 + faseBraco * 4);
   ctx.stroke();
+
   // Braço direito (arma)
   let anguloArma = 0;
   if (isMeu) {
     anguloArma = Math.atan2(mouse.y - y, mouse.x - x);
   } else {
-    anguloArma = 0.5; // Padrão para outros jogadores
+    anguloArma = 0.5;
   }
   const bracoCompr = 18;
   const armaCompr = 18;
@@ -177,23 +201,30 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.moveTo(x, y);
   ctx.lineTo(maoX, maoY);
   ctx.stroke();
-  // Desenha arma
+  // Desenha pistola estilizada
   ctx.save();
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 5;
+  ctx.translate(maoX, maoY);
+  ctx.rotate(anguloArma);
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 6;
   ctx.beginPath();
-  ctx.moveTo(maoX, maoY);
-  ctx.lineTo(maoX + Math.cos(anguloArma) * armaCompr, maoY + Math.sin(anguloArma) * armaCompr);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(armaCompr, 0);
+  ctx.stroke();
+  // Gatilho
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(armaCompr * 0.7, 0);
+  ctx.lineTo(armaCompr * 0.7, 5);
+  ctx.stroke();
+  // Cano
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(armaCompr, -2);
+  ctx.lineTo(armaCompr + 6, 0);
   ctx.stroke();
   ctx.restore();
 
-  // Pernas
-  ctx.beginPath();
-  ctx.moveTo(x, y + 18);
-  ctx.lineTo(x - 10, y + 34 + fase);
-  ctx.moveTo(x, y + 18);
-  ctx.lineTo(x + 10, y + 34 - fase);
-  ctx.stroke();
   // Nome
   ctx.font = 'bold 15px monospace';
   ctx.textAlign = 'center';
