@@ -36,6 +36,7 @@ function broadcast(data) {
 
 wss.on('connection', (ws) => {
   let jogadorId = null;
+  let nomeProvisorio = null;
 
   ws.on('message', (msg) => {
     let data;
@@ -50,6 +51,12 @@ wss.on('connection', (ws) => {
       case 'join': {
         const nome = String(data.nome || '').slice(0, 16);
         if (!nome) return;
+        // Verifica se já existe jogador com esse nome
+        const nomeEmUso = Object.values(jogadores).some(j => j.nome.toLowerCase() === nome.toLowerCase());
+        if (nomeEmUso) {
+          ws.send(JSON.stringify({ type: 'nome_em_uso' }));
+          return;
+        }
         const jogador = criarJogador(nome);
         jogadorId = jogador.id;
         ws.send(JSON.stringify({ type: 'init', id: jogadorId }));

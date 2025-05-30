@@ -586,9 +586,39 @@ function criarTelaLogin() {
     input.disabled = true;
     fetch(httpUrl, { method: 'GET', cache: 'no-store' })
       .then(() => {
-        localStorage.setItem('nomeJogador', nome);
-        div.remove();
-        iniciarJogoComNome(nome);
+        // Verifica se o nome já está em uso no servidor
+        const wsUrl = `ws://${host}:3000`;
+        let ws = new WebSocket(wsUrl);
+        let rejeitado = false;
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type: 'join', nome }));
+        };
+        ws.onmessage = (event) => {
+          let data;
+          try { data = JSON.parse(event.data); } catch { return; }
+          if (data.type === 'nome_em_uso') {
+            rejeitado = true;
+            erro.innerText = 'Nome já está em uso!';
+            btn.disabled = false;
+            input.disabled = false;
+            input.focus();
+            ws.close();
+          } else if (data.type === 'init') {
+            // Nome aceito, pode prosseguir
+            ws.close();
+            localStorage.setItem('nomeJogador', nome);
+            div.remove();
+            iniciarJogoComNome(nome);
+          }
+        };
+        ws.onerror = () => {
+          if (!rejeitado) {
+            erro.innerText = 'Erro ao conectar. Tente novamente.';
+            btn.disabled = false;
+            input.disabled = false;
+            input.focus();
+          }
+        };
       })
       .catch(() => {
         erro.innerText = 'Servidor offline. Tente novamente.';
