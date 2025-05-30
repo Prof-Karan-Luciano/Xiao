@@ -38,25 +38,8 @@ const INTERP_DELAY = 80; // ms de atraso para suavizar
 /**
  * Conecta ao servidor WebSocket e inicializa eventos.
  */
-function conectar() {
-  // Recupera nome do localStorage, se existir
-  let nomeSalvo = localStorage.getItem('nomeJogador');
-  let nomeValido = false;
-  while (!nomeValido) {
-    nome = window.prompt('Digite seu nome:', nomeSalvo || '') || (nomeSalvo || 'Jogador');
-    nome = nome.trim().slice(0, 16);
-    nomeValido = true;
-    // Verifica nomes já usados
-    for (const id in jogadores) {
-      if (jogadores[id].nome && jogadores[id].nome.toLowerCase() === nome.toLowerCase()) {
-        alert('Nome já está em uso! Escolha outro.');
-        nomeValido = false;
-        break;
-      }
-    }
-  }
-  // Salva nome para respawn
-  localStorage.setItem('nomeJogador', nome);
+function conectar(nomeParam) {
+  let nome = nomeParam || localStorage.getItem('nomeJogador') || '';
   const host = window.location.hostname || 'localhost';
   socket = new WebSocket(`ws://${host}:3000`);
 
@@ -511,11 +494,109 @@ function loop() {
 }
 
 // =====================
+// Tela de Login
+// =====================
+function criarTelaLogin() {
+  let div = document.createElement('div');
+  div.id = 'telaLogin';
+  div.style.position = 'fixed';
+  div.style.top = '0';
+  div.style.left = '0';
+  div.style.width = '100vw';
+  div.style.height = '100vh';
+  div.style.background = 'rgba(20,22,30,0.96)';
+  div.style.display = 'flex';
+  div.style.flexDirection = 'column';
+  div.style.alignItems = 'center';
+  div.style.justifyContent = 'center';
+  div.style.zIndex = '9999';
+
+  let box = document.createElement('div');
+  box.style.background = '#23272e';
+  box.style.padding = '36px 32px 28px 32px';
+  box.style.borderRadius = '16px';
+  box.style.boxShadow = '0 0 32px #000a';
+  box.style.display = 'flex';
+  box.style.flexDirection = 'column';
+  box.style.alignItems = 'center';
+
+  let titulo = document.createElement('h2');
+  titulo.innerText = 'Jogo de Tiro 2D';
+  titulo.style.color = '#fff';
+  titulo.style.fontFamily = 'monospace';
+  titulo.style.marginBottom = '18px';
+  box.appendChild(titulo);
+
+  let label = document.createElement('label');
+  label.innerText = 'Digite seu nome:';
+  label.style.color = '#fff';
+  label.style.fontFamily = 'monospace';
+  label.style.marginBottom = '8px';
+  box.appendChild(label);
+
+  let input = document.createElement('input');
+  input.type = 'text';
+  input.maxLength = 16;
+  input.style.fontSize = '1.2rem';
+  input.style.padding = '8px 12px';
+  input.style.borderRadius = '6px';
+  input.style.border = '1px solid #444';
+  input.style.marginBottom = '16px';
+  input.style.width = '220px';
+  input.style.fontFamily = 'monospace';
+  input.value = localStorage.getItem('nomeJogador') || '';
+  box.appendChild(input);
+
+  let btn = document.createElement('button');
+  btn.innerText = 'Entrar';
+  btn.style.fontSize = '1.1rem';
+  btn.style.padding = '8px 24px';
+  btn.style.borderRadius = '6px';
+  btn.style.border = 'none';
+  btn.style.background = 'linear-gradient(90deg,#3a8,#2a6)';
+  btn.style.color = '#fff';
+  btn.style.fontFamily = 'monospace';
+  btn.style.cursor = 'pointer';
+  btn.style.fontWeight = 'bold';
+  box.appendChild(btn);
+
+  let erro = document.createElement('div');
+  erro.style.color = '#f66';
+  erro.style.fontFamily = 'monospace';
+  erro.style.marginTop = '8px';
+  erro.style.height = '20px';
+  box.appendChild(erro);
+
+  div.appendChild(box);
+  document.body.appendChild(div);
+  input.focus();
+
+  function tentarEntrar() {
+    let nome = input.value.trim().slice(0, 16);
+    if (!nome) {
+      erro.innerText = 'Digite um nome válido!';
+      input.focus();
+      return;
+    }
+    localStorage.setItem('nomeJogador', nome);
+    div.remove();
+    iniciarJogoComNome(nome);
+  }
+  btn.onclick = tentarEntrar;
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') tentarEntrar();
+  };
+}
+
+function iniciarJogoComNome(nome) {
+  conectar(nome);
+  loop();
+}
+
+// =====================
 // Inicialização
 // =====================
-
-conectar();
-loop();
+criarTelaLogin();
 
 // =====================
 // Colisão avançada: hitbox cabeça/corpo
