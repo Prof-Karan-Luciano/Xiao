@@ -122,14 +122,16 @@ canvas.addEventListener('mousedown', (e) => {
 // =====================
 
 /**
- * Desenha um palitinho (stick figure).
+ * Desenha um palitinho (stick figure) animado com arma.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} x
  * @param {number} y
  * @param {string} cor
  * @param {string} nome
+ * @param {boolean} isMeu
+ * @param {number} tick
  */
-function desenharPalitinho(ctx, x, y, cor, nome) {
+function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.save();
   ctx.strokeStyle = cor;
   ctx.lineWidth = 3;
@@ -142,19 +144,55 @@ function desenharPalitinho(ctx, x, y, cor, nome) {
   ctx.moveTo(x, y - 8);
   ctx.lineTo(x, y + 18);
   ctx.stroke();
-  // Braços
+
+  // Animação das pernas e braços
+  // Fase de movimento baseada no tempo e posição
+  let fase = Math.sin(tick / 8 + x / 30 + y / 40) * 10;
+  let andando = false;
+  if (isMeu) {
+    andando = (teclas.w || teclas.a || teclas.s || teclas.d || teclas.ArrowUp || teclas.ArrowDown || teclas.ArrowLeft || teclas.ArrowRight);
+  } else {
+    // Para outros jogadores, anima se estiver mudando de posição
+    andando = true; // Opcional: pode usar velocidade se disponível
+  }
+  if (!andando) fase = 0;
+
+  // Braço esquerdo
   ctx.beginPath();
   ctx.moveTo(x, y);
-  ctx.lineTo(x - 14, y + 8);
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 14, y + 8);
+  ctx.lineTo(x - 14, y + 8 + fase);
   ctx.stroke();
+  // Braço direito (arma)
+  let anguloArma = 0;
+  if (isMeu) {
+    anguloArma = Math.atan2(mouse.y - y, mouse.x - x);
+  } else {
+    anguloArma = 0.5; // Padrão para outros jogadores
+  }
+  const bracoCompr = 18;
+  const armaCompr = 18;
+  const maoX = x + Math.cos(anguloArma) * bracoCompr;
+  const maoY = y + Math.sin(anguloArma) * bracoCompr;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(maoX, maoY);
+  ctx.stroke();
+  // Desenha arma
+  ctx.save();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(maoX, maoY);
+  ctx.lineTo(maoX + Math.cos(anguloArma) * armaCompr, maoY + Math.sin(anguloArma) * armaCompr);
+  ctx.stroke();
+  ctx.restore();
+
   // Pernas
   ctx.beginPath();
   ctx.moveTo(x, y + 18);
-  ctx.lineTo(x - 10, y + 34);
+  ctx.lineTo(x - 10, y + 34 + fase);
   ctx.moveTo(x, y + 18);
-  ctx.lineTo(x + 10, y + 34);
+  ctx.lineTo(x + 10, y + 34 - fase);
   ctx.stroke();
   // Nome
   ctx.font = 'bold 15px monospace';
@@ -233,9 +271,18 @@ function desenhar() {
   // Balas
   desenharBalas(balas);
   // Jogadores
+  let tick = performance.now() / 16;
   for (const id in jogadores) {
     const j = jogadores[id];
-    desenharPalitinho(ctx, j.x, j.y, j.cor, j.nome);
+    desenharPalitinho(
+      ctx,
+      j.x,
+      j.y,
+      j.cor,
+      j.nome,
+      id === meuId,
+      tick
+    );
   }
   // Placar
   desenharPlacar();
