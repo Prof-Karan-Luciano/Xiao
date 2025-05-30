@@ -21,6 +21,12 @@ let morto = false;
 const teclas = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let mouse = { x: 0, y: 0 };
 
+// Estado para animação de recuo da arma
+let recuoArma = 0;
+let recuoTick = 0;
+// Partículas
+let particulas = [];
+
 // =====================
 // Funções de Rede
 // =====================
@@ -29,7 +35,20 @@ let mouse = { x: 0, y: 0 };
  * Conecta ao servidor WebSocket e inicializa eventos.
  */
 function conectar() {
-  nome = window.prompt('Digite seu nome:') || 'Jogador';
+  let nomeValido = false;
+  while (!nomeValido) {
+    nome = window.prompt('Digite seu nome:') || 'Jogador';
+    nome = nome.trim().slice(0, 16);
+    nomeValido = true;
+    // Verifica nomes já usados
+    for (const id in jogadores) {
+      if (jogadores[id].nome && jogadores[id].nome.toLowerCase() === nome.toLowerCase()) {
+        alert('Nome já está em uso! Escolha outro.');
+        nomeValido = false;
+        break;
+      }
+    }
+  }
   const host = window.location.hostname || 'localhost';
   socket = new WebSocket(`ws://${host}:3000`);
 
@@ -56,7 +75,10 @@ function conectar() {
       case 'hit':
         if (data.alvo === meuId) {
           morto = true;
+          criarExplosao(pos.x, pos.y, '#fff', 32);
           setTimeout(() => window.location.reload(), 1500);
+        } else if (jogadores[data.alvo]) {
+          criarExplosao(jogadores[data.alvo].x, jogadores[data.alvo].y, jogadores[data.alvo].cor, 24);
         }
         break;
       case 'leave':
@@ -115,7 +137,82 @@ canvas.addEventListener('mousedown', (e) => {
   const dy = mouse.y - pos.y;
   const len = Math.hypot(dx, dy) || 1;
   enviarTiro(dx / len, dy / len);
+  recuoArma = 1; // ativa recuo
+  recuoTick = 0;
+  // Partículas de tiro
+  for (let i = 0; i < 6; i++) {
+    const ang = Math.atan2(dy, dx) + (Math.random() - 0.5) * 0.2;
+    const vel = Math.random() * 2 + 2;
+    particulas.push({
+      x: pos.x + Math.cos(ang) * 18,
+      y: pos.y + Math.sin(ang) * 18,
+      dx: Math.cos(ang) * vel,
+      dy: Math.sin(ang) * vel,
+      cor: '#ff0',
+      vida: 12 + Math.random() * 6,
+      t: 0
+    });
+  }
 });
+
+// =====================
+// Funções de Partículas e Efeitos
+// =====================
+
+/**
+ * Cria partículas de explosão.
+ * @param {number} x
+ * @param {number} y
+ * @param {string} cor
+ * @param {number} qtd
+ */
+function criarExplosao(x, y, cor, qtd = 18) {
+  for (let i = 0; i < qtd; i++) {
+    const ang = Math.random() * 2 * Math.PI;
+    const vel = Math.random() * 3 + 1;
+    particulas.push({
+      x, y,
+      dx: Math.cos(ang) * vel,
+      dy: Math.sin(ang) * vel,
+      cor,
+      vida: 24 + Math.random() * 12,
+      t: 0
+    });
+  }
+}
+
+/**
+ * Atualiza partículas.
+ */
+function atualizarParticulas() {
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    const p = particulas[i];
+    p.x += p.dx;
+    p.y += p.dy;
+    p.dy += 0.08; // gravidade leve
+    p.dx *= 0.97;
+    p.dy *= 0.97;
+    p.t++;
+    if (p.t > p.vida) particulas.splice(i, 1);
+  }
+}
+
+/**
+ * Desenha partículas.
+ */
+function desenharParticulas() {
+  for (const p of particulas) {
+    ctx.save();
+    ctx.globalAlpha = 1 - p.t / p.vida;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = p.cor;
+    ctx.shadowColor = p.cor;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.restore();
+  }
+}
 
 // =====================
 // Renderização
@@ -134,6 +231,9 @@ canvas.addEventListener('mousedown', (e) => {
  */
 function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.save();
+  // Sombra/contorno
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 10;
   ctx.strokeStyle = cor;
   ctx.lineWidth = 3;
   // Cabeça
@@ -209,13 +309,18 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   }
   const bracoCompr = 18;
   const armaCompr = 18;
-  const maoX = x + Math.cos(anguloArma) * bracoCompr;
-  const maoY = y + Math.sin(anguloArma) * bracoCompr;
+  // Recuo da arma
+  let recuo = 0;
+  if (isMeu && recuoArma > 0) {
+    recuo = Math.sin(recuoTick / 3) * 7 * recuoArma;
+  }
+  const maoX = x + Math.cos(anguloArma) * (bracoCompr + recuo);
+  const maoY = y + Math.sin(anguloArma) * (bracoCompr + recuo);
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(maoX, maoY);
   ctx.stroke();
-  // Desenha pistola estilizada
+  // Pistola
   ctx.save();
   ctx.translate(maoX, maoY);
   ctx.rotate(anguloArma);
@@ -225,13 +330,11 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
   ctx.moveTo(0, 0);
   ctx.lineTo(armaCompr, 0);
   ctx.stroke();
-  // Gatilho
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(armaCompr * 0.7, 0);
   ctx.lineTo(armaCompr * 0.7, 5);
   ctx.stroke();
-  // Cano
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(armaCompr, -2);
@@ -309,10 +412,18 @@ function atualizar() {
       enviarMovimento(pos.x, pos.y);
     }
   }
+  // Atualiza recuo da arma
+  if (recuoArma > 0) {
+    recuoTick++;
+    recuoArma *= 0.85;
+    if (recuoArma < 0.01) recuoArma = 0;
+  }
+  atualizarParticulas();
 }
 
 function desenhar() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  desenharParticulas();
   // Balas
   desenharBalas(balas);
   // Jogadores
