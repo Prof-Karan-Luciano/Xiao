@@ -578,9 +578,24 @@ function criarTelaLogin() {
       input.focus();
       return;
     }
-    localStorage.setItem('nomeJogador', nome);
-    div.remove();
-    iniciarJogoComNome(nome);
+    // Verifica se o servidor está online antes de logar
+    const host = window.location.hostname || 'localhost';
+    const httpUrl = `http://${host}:3000`;
+    erro.innerText = 'Verificando servidor...';
+    btn.disabled = true;
+    input.disabled = true;
+    fetch(httpUrl, { method: 'GET', cache: 'no-store' })
+      .then(() => {
+        localStorage.setItem('nomeJogador', nome);
+        div.remove();
+        iniciarJogoComNome(nome);
+      })
+      .catch(() => {
+        erro.innerText = 'Servidor offline. Tente novamente.';
+        btn.disabled = false;
+        input.disabled = false;
+        input.focus();
+      });
   }
   btn.onclick = tentarEntrar;
   input.onkeydown = (e) => {

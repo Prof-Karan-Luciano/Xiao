@@ -13,6 +13,8 @@ const PORT = 3000;
 const TICK_RATE = 1000 / 60; // 60 FPS
 
 const server = http.createServer((req, res) => {
+  // Habilita CORS para qualquer origem (necessário para fetch do front)
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.writeHead(200);
   res.end('Servidor WebSocket do jogo está rodando.');
 });
