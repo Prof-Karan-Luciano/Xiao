@@ -122,8 +122,8 @@ canvas.addEventListener('mousedown', (e) => {
 // =====================
 
 /**
- * Desenha um palitinho (stick figure) animado com arma e pernas naturais.
- * Pernas: movimento elíptico alternado, sincronizado com direção do movimento.
+ * Desenha um palitinho (stick figure) animado com arma e pernas com joelho.
+ * Pernas: coxa e canela, movimento alternado, simulando passo humano com joelho.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} x
  * @param {number} y
@@ -154,29 +154,43 @@ function desenharPalitinho(ctx, x, y, cor, nome, isMeu, tick) {
     if (teclas.a || teclas.ArrowLeft) dx -= 1;
     if (teclas.d || teclas.ArrowRight) dx += 1;
   } else {
-    // Para outros jogadores, anima sempre para frente
     dy = 1;
   }
   let andando = (dx !== 0 || dy !== 0);
-  // Ângulo do movimento
-  let angMov = Math.atan2(dy, dx);
-  // Fase sincronizada com direção
+
+  // Movimento de pernas com joelho
   let t = tick / 8;
-  if (andando && (dx < 0 || dy > 0)) t = -t; // Inverte fase para esquerda/baixo
-  let ampX = 8, ampY = 18;
-  let faseA = andando ? t : 0;
-  let faseB = andando ? t + Math.PI : 0;
-  // Posição dos pés
-  let pernaAX = x - 7 + Math.sin(faseA) * ampX;
-  let pernaAY = y + 18 + Math.abs(Math.cos(faseA)) * ampY;
-  let pernaBX = x + 7 + Math.sin(faseB) * ampX;
-  let pernaBY = y + 18 + Math.abs(Math.cos(faseB)) * ampY;
-  // Pernas
+  let passo = andando ? Math.sin(t) : 0;
+  // Parâmetros do boneco
+  const quadrilY = y + 18;
+  const coxaLen = 13;
+  const canelaLen = 13;
+  // Ângulos alternados para cada perna
+  let angCoxaE = Math.PI / 2 + passo * 0.5; // Esquerda
+  let angCoxaD = Math.PI / 2 - passo * 0.5; // Direita
+  let angCanelaE = Math.PI / 2 + Math.max(0, -passo) * 0.7; // flexiona ao recuar
+  let angCanelaD = Math.PI / 2 + Math.max(0, passo) * 0.7;
+  // Posição do joelho e pé (esquerda)
+  let joelhoEx = x - 7 + Math.cos(angCoxaE) * coxaLen;
+  let joelhoEy = quadrilY + Math.sin(angCoxaE) * coxaLen;
+  let peEx = joelhoEx + Math.cos(angCanelaE) * canelaLen;
+  let peEy = joelhoEy + Math.sin(angCanelaE) * canelaLen;
+  // Posição do joelho e pé (direita)
+  let joelhoDx = x + 7 + Math.cos(angCoxaD) * coxaLen;
+  let joelhoDy = quadrilY + Math.sin(angCoxaD) * coxaLen;
+  let peDx = joelhoDx + Math.cos(angCanelaD) * canelaLen;
+  let peDy = joelhoDy + Math.sin(angCanelaD) * canelaLen;
+  // Pernas (esquerda)
   ctx.beginPath();
-  ctx.moveTo(x, y + 18);
-  ctx.lineTo(pernaAX, pernaAY);
-  ctx.moveTo(x, y + 18);
-  ctx.lineTo(pernaBX, pernaBY);
+  ctx.moveTo(x - 7, quadrilY);
+  ctx.lineTo(joelhoEx, joelhoEy);
+  ctx.lineTo(peEx, peEy);
+  ctx.stroke();
+  // Pernas (direita)
+  ctx.beginPath();
+  ctx.moveTo(x + 7, quadrilY);
+  ctx.lineTo(joelhoDx, joelhoDy);
+  ctx.lineTo(peDx, peDy);
   ctx.stroke();
 
   // Braço esquerdo (anima levemente)
