@@ -144,19 +144,22 @@ function enviarTiro(dx, dy) {
 
 let pos = { x: 400, y: 300 };
 
+// Remover tabIndex e focus do canvas
+// window.addEventListener para todos os inputs
 window.addEventListener('keydown', (e) => {
   if (teclas.hasOwnProperty(e.key)) teclas[e.key] = true;
 });
 window.addEventListener('keyup', (e) => {
   if (teclas.hasOwnProperty(e.key)) teclas[e.key] = false;
 });
-canvas.addEventListener('mousemove', (e) => {
+window.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   mouse.x = e.clientX - rect.left;
   mouse.y = e.clientY - rect.top;
 });
-canvas.addEventListener('mousedown', (e) => {
+window.addEventListener('mousedown', (e) => {
   if (morto) return;
+  e.preventDefault();
   const dx = mouse.x - pos.x;
   const dy = mouse.y - pos.y;
   const len = Math.hypot(dx, dy) || 1;
@@ -178,6 +181,8 @@ canvas.addEventListener('mousedown', (e) => {
     });
   }
 });
+// Previne seleção de texto acidental
+canvas.addEventListener('selectstart', e => e.preventDefault());
 
 // =====================
 // Funções de Partículas e Efeitos

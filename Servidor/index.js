@@ -6,14 +6,12 @@
 const http = require('http');
 const WebSocket = require('ws');
 const { gerarCorUnica, gerarId } = require('./utils');
+const { criarJogador, removerJogador, atualizarMovimento, processarTiro, decairRecuo, getJogadoresArray, jogadores } = require('./jogadores');
+const { criarBala, atualizarBalas, getBalasArray } = require('./balas');
 
 const PORT = 3000;
 const TICK_RATE = 1000 / 60; // 60 FPS
 
-const jogadores = {};
-const balas = [];
-
-// Cria servidor HTTP para servir arquivos estáticos (opcional)
 const server = http.createServer((req, res) => {
   res.writeHead(200);
   res.end('Servidor WebSocket do jogo está rodando.');
@@ -50,18 +48,8 @@ wss.on('connection', (ws) => {
       case 'join': {
         const nome = String(data.nome || '').slice(0, 16);
         if (!nome) return;
-        jogadorId = gerarId();
-        jogadores[jogadorId] = {
-          id: jogadorId,
-          nome,
-          x: Math.random() * 600 + 100,
-          y: Math.random() * 400 + 100,
-          cor: gerarCorUnica(),
-          pontos: 0,
-          tiroDx: 1, // padrão direita
-          tiroDy: 0,
-          recuo: 0
-        };
+        const jogador = criarJogador(nome);
+        jogadorId = jogador.id;
         ws.send(JSON.stringify({ type: 'init', id: jogadorId }));
         console.log(`[JOIN] ${nome} (${jogadorId}) conectado.`);
         break;
@@ -70,8 +58,7 @@ wss.on('connection', (ws) => {
         if (!jogadorId || !jogadores[jogadorId]) return;
         const { x, y } = data;
         if (typeof x === 'number' && typeof y === 'number') {
-          jogadores[jogadorId].x = x;
-          jogadores[jogadorId].y = y;
+          atualizarMovimento(jogadorId, x, y);
         }
         break;
       }
@@ -79,19 +66,8 @@ wss.on('connection', (ws) => {
         if (!jogadorId || !jogadores[jogadorId]) return;
         const { dx, dy } = data;
         if (typeof dx === 'number' && typeof dy === 'number') {
-          balas.push({
-            id: gerarId(),
-            dono: jogadorId,
-            x: jogadores[jogadorId].x,
-            y: jogadores[jogadorId].y,
-            dx,
-            dy,
-            tempo: Date.now()
-          });
-          // Salva direção e ativa recuo
-          jogadores[jogadorId].tiroDx = dx;
-          jogadores[jogadorId].tiroDy = dy;
-          jogadores[jogadorId].recuo = 1;
+          criarBala(jogadorId, jogadores[jogadorId].x, jogadores[jogadorId].y, dx, dy);
+          processarTiro(jogadorId, dx, dy);
           console.log(`[SHOOT] ${jogadores[jogadorId].nome} atirou.`);
         }
         break;
@@ -102,7 +78,7 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (jogadorId && jogadores[jogadorId]) {
       console.log(`[DISCONNECT] ${jogadores[jogadorId].nome} saiu.`);
-      delete jogadores[jogadorId];
+      removerJogador(jogadorId);
       broadcast({ type: 'leave', id: jogadorId });
     }
   });
@@ -110,47 +86,21 @@ wss.on('connection', (ws) => {
 
 // Lógica do jogo: movimentação das balas e colisão
 setInterval(() => {
-  // Atualiza balas
-  for (let i = balas.length - 1; i >= 0; i--) {
-    const b = balas[i];
-    b.x += b.dx * 8;
-    b.y += b.dy * 8;
-    // Remove se sair da tela
-    if (b.x < 0 || b.x > 800 || b.y < 0 || b.y > 600 || Date.now() - b.tempo > 2000) {
-      balas.splice(i, 1);
-      continue;
-    }
-    // Colisão com jogadores
-    for (const jid in jogadores) {
-      if (jid === b.dono) continue;
-      const j = jogadores[jid];
-      const dist = Math.hypot(j.x - b.x, j.y - b.y);
-      if (dist < 18) {
-        broadcast({ type: 'hit', alvo: jid, por: b.dono });
-        jogadores[b.dono].pontos++;
-        delete jogadores[jid];
-        balas.splice(i, 1);
-        break;
-      }
-    }
-  }
-  // Atualiza recuo dos jogadores
-  for (const jid in jogadores) {
-    if (jogadores[jid].recuo > 0) {
-      jogadores[jid].recuo *= 0.85;
-      if (jogadores[jid].recuo < 0.01) jogadores[jid].recuo = 0;
-    }
-  }
-  // Broadcast do estado do jogo
+  atualizarBalas(jogadores, (alvoId, porId) => {
+    broadcast({ type: 'hit', alvo: alvoId, por: porId });
+    if (jogadores[porId]) jogadores[porId].pontos++;
+    removerJogador(alvoId);
+  });
+  decairRecuo();
   broadcast({
     type: 'state',
-    jogadores: Object.values(jogadores).map(j => ({
+    jogadores: getJogadoresArray().map(j => ({
       ...j,
       tiroDx: j.tiroDx,
       tiroDy: j.tiroDy,
       recuo: j.recuo
     })),
-    balas
+    balas: getBalasArray()
   });
 }, TICK_RATE);
 
